@@ -149,19 +149,18 @@ open class OAuthSwiftHTTPRequest: NSObject, OAuthSwiftRequestHandle {
 
         // MARK: failure code > 400
         guard response.statusCode < 400 else {
-            var localizedDescription = ""
+            var localizedDescription = String()
             let responseString = String(data: responseData, encoding: OAuthSwiftDataEncoding)
 
             // Try to get error information from data as json
             let responseJSON = try? JSONSerialization.jsonObject(with: responseData, options: .mutableContainers)
-            var errorCode: String?
             if let responseJSON = responseJSON as? OAuthSwift.Parameters {
-                if let code = responseJSON["error"] as? String {
-                    errorCode = code
-                    if  let description = responseJSON["error_description"] as? String {
-                        localizedDescription = NSLocalizedString("\(code) \(description)", comment: "")
-                    } else {
-                        localizedDescription = NSLocalizedString("\(code)", comment: "")
+                if let code = responseJSON["error"] as? String, let description = responseJSON["error_description"] as? String {
+
+                    localizedDescription = NSLocalizedString("\(code) \(description)", comment: "")
+                    if code == "authorization_pending" {
+                        failureHandler?(.authorizationPending)
+                        return
                     }
                 }
             } else {
@@ -184,12 +183,6 @@ open class OAuthSwiftHTTPRequest: NSObject, OAuthSwiftRequestHandle {
             let error = NSError(domain: NSURLErrorDomain, code: response.statusCode, userInfo: userInfo)
             if error.isExpiredToken {
                 failureHandler?(.tokenExpired(error: error))
-            } else if errorCode == "authorization_pending" {
-                failureHandler?(.authorizationPending(error: error, request: request))
-            } else if errorCode == "slow_down" {
-                failureHandler?(.slowDown(error: error, request: request))
-            } else if errorCode == "access_denied" {
-                failureHandler?(.accessDenied(error: error, request: request))
             } else {
                 failureHandler?(.requestError(error: error, request: request))
             }
